@@ -5,3 +5,7 @@ CodeSpeedy_files
 CodeSpeedy.html
 data.txt
 ejemplo.html
+._spider.py
+.DS_Store
+._.DS_Store
+._.gitignore

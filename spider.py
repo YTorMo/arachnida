@@ -2,19 +2,36 @@ import re
 from bs4 import *
 import requests
 import os
+import argparse
 from requests.exceptions import ConnectionError
 requests.packages.urllib3.disable_warnings() 
 
 
-def main(url_ln):
+def main(arg):
     full_list = []
-    full_list.append(url_ln)
-    full_list = get_full_listurl(full_list, 0)
-    print("Enlaces obtenidos:      " + str(len(full_list)))
+    rec_lvl = 0
+    full_list.append(arg.get("URL"))
+    if arg.get("r"):
+        rec_lvl = 5
+        if arg.get("l"):
+            rec_lvl = arg.get("l")
+    full_list = get_full_listurl(full_list, int(rec_lvl))
+    print("URLs:      " + str(len(full_list)))
     full_img_list = get_ful_image_url_list(full_list)
-    print("Enlaces de imagenes:     " + str(len(full_img_list)))
-    folder_create(full_img_list)
+    folder_create(full_img_list, arg)
 
+
+def parse():
+	parser = argparse.ArgumentParser(
+		prog = "python3 spider.py", 
+		description = "scrape images from URL"
+	)
+	parser.add_argument("-r", action="store_true", help="Option -r : recursively downloads the images in a URL received as a parameter", default = False)
+	parser.add_argument("-l", help ="Option -r -l [N] : indicates the maximum depth level of the recursive download. If not indicated, it will be 5.", default = 0)
+	parser.add_argument("-p", help="Option -p [PATH] : indicates the path where the downloaded files will be saved. If not specified, ./data/ will be used.", default="./data")
+	parser.add_argument("URL", help="URL from a website")
+	args = parser.parse_args()
+	return args.__dict__
 
 def get_full_listurl(urls, depth):
     full_list = urls
@@ -86,15 +103,14 @@ def get_ful_image_url_list(full_list):
     return part_list
 
 
-def folder_create(urls):
-    folder_name = input("Enter name of folder: ")
-    if(not folder_name):
-        folder_name = "data"
+def folder_create(urls, arg):
+    folder_name = arg.get("p")
     os.mkdir(folder_name)
     download_images(urls, folder_name)
 
 
-def download_images(urls, folder_name):#, site
+def download_images(urls, folder_name):
+    count = 0
     for url in urls:
         filename = re.search(r'/([\w_-]+[.](jpg|jpeg|gif|png))', url)
         if not filename:
@@ -103,6 +119,8 @@ def download_images(urls, folder_name):#, site
         with open(folder_name + "/" + filename.group(1), 'wb') as f:
             response = requests.get(url)
             f.write(response.content)
+            count += 1
+    print("Download finish. \n" + str(count) + " images has been downloaded.")
 
 
 def url_converter(base_url, url):
@@ -114,18 +132,18 @@ def url_converter(base_url, url):
 
 
 if __name__ == "__main__":
-    #input("Enter site URL:")
-    url = "file:///System/Volumes/Data/sgoinfre/goinfre/Perso/ytoro-mo/arachnida/ejemplo.html"
+    arg = parse()
+    url = arg.get("URL")
     if(url.startswith("http")):
         try:
             requests.get(url)
-            main(url)
+            main(arg)
         except ConnectionError:
             print ('Failed to open url.')
     elif(url.startswith("file")):
         try:
             open(url[7:], "r")
-            main(url)
+            main(arg)
         except:
             print("Failed to open file url.")
     else:
