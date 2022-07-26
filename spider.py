@@ -24,7 +24,7 @@ def main(arg):
 def parse():
 	parser = argparse.ArgumentParser(
 		prog = "python3 spider.py", 
-		description = "scrape images from URL"
+		description = "The spider program will allow you to extract all the images from a website"
 	)
 	parser.add_argument("-r", action="store_true", help="Option -r : recursively downloads the images in a URL received as a parameter", default = False)
 	parser.add_argument("-l", help ="Option -r -l [N] : indicates the maximum depth level of the recursive download. If not indicated, it will be 5.", default = 0)
