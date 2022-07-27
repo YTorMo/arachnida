@@ -25,7 +25,7 @@ def main(arg):
     folder_create(arg)
     print(url_list_f)
     with ThreadPoolExecutor(max_workers=100) as executor:
-    	executor.map(test_img_url, url_list_f)
+    	executor.map(get_img_url, url_list_f)
 
 
 def parse():
@@ -77,7 +77,7 @@ def web_requester(url_ln):
             url_list_f.append(url)
 
 
-def test_img_url(url_ln):
+def get_img_url(url_ln):
     urls_raw = []
     list_url = []
     part_list = []
