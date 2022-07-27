@@ -23,7 +23,6 @@ def main(arg):
         depth -= 1
     print("Visited URLs:      " + str(len(url_list_f)))
     folder_create(arg)
-    print(url_list_f)
     with ThreadPoolExecutor(max_workers=100) as executor:
     	executor.map(get_img_url, url_list_f)
 
@@ -115,7 +114,7 @@ def download_images(urls, folder_name):
     for url in urls:
         filename = re.search(r'/([\w_-]+[.](jpg|jpeg|gif|png))', url)
         if not filename:
-            print("Broken link. ")
+            print("Invalid image url. ")
             continue
         with open(folder_name + "/" + filename.group(1), 'wb') as f:
             response = requests.get(url)
