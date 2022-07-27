@@ -3,22 +3,29 @@ from bs4 import *
 import requests
 import os
 import argparse
+from urllib.parse import urljoin
+from concurrent.futures import ThreadPoolExecutor
 from requests.exceptions import ConnectionError
 requests.packages.urllib3.disable_warnings() 
 
 
 def main(arg):
-    full_list = []
     rec_lvl = 0
-    full_list.append(arg.get("URL"))
+    url_list_f.append(arg.get("URL"))
     if arg.get("r"):
-        rec_lvl = 5
+        rec_lvl = 4
         if arg.get("l"):
-            rec_lvl = arg.get("l")
-    full_list = get_full_listurl(full_list, int(rec_lvl))
-    print("URLs:      " + str(len(full_list)))
-    full_img_list = get_ful_image_url_list(full_list)
-    folder_create(full_img_list, arg)
+            rec_lvl = int(arg.get("l")) - 1
+    depth = int(rec_lvl)
+    while (depth > 0):
+        with ThreadPoolExecutor(max_workers=100) as executor:
+            executor.map(get_list_url, url_list_f)
+        depth -= 1
+    print("Visited URLs:      " + str(len(url_list_f)))
+    folder_create(arg)
+    print(url_list_f)
+    with ThreadPoolExecutor(max_workers=100) as executor:
+    	executor.map(test_img_url, url_list_f)
 
 
 def parse():
@@ -33,15 +40,11 @@ def parse():
 	args = parser.parse_args()
 	return args.__dict__
 
-def get_full_listurl(urls, depth):
-    full_list = urls
-    alrd_vstd = []
-    while depth > 0:
-        part_list = []
-        urls_raw = []
-        for url_ln in full_list:
-            list_url = []
-            if(url_ln.startswith("file")):
+
+def get_list_url(url_ln):
+        list_url = []
+        if(url_list_f[0].startswith("file:///")):
+            if(url_ln.startswith("file:///")):
                 with open(url_ln[7:], "r") as f:
                     page = f.read()
                 list_url = page.split("\n")
@@ -49,78 +52,74 @@ def get_full_listurl(urls, depth):
                     if (url.find('href') != -1 and (url.find('<a') != -1 or url.find('<link') != -1)):
                             url_splt = url.split('"')
                             for url_s in url_splt:
-                                if(url_s.startswith(url_ln) or url_s.startswith("//") or url_s.startswith("/")):# or url_s.startswith("https")
-                                    part_list.append(url_converter(url_ln, url_s))
-            elif(url_ln not in alrd_vstd and url_ln.startswith("https")):
-                r = requests.get(url_ln, verify=False)
-                soup = BeautifulSoup(r.text, 'html.parser')
-                list_url = soup.findAll('link') + soup.findAll('a')#
-                for url in list_url:
-                    if url.has_key('href'):
-                        urls_raw.append(url['href'])
-                urls = []
-                for url in urls_raw:
-                    if(url.startswith(url_ln) or url.startswith("//") or url.startswith("/")): #
-                        urls.append(url_converter(url_ln, url))
-                for url in urls:
-                    if(url not in full_list and url not in part_list):
-                        part_list.append(url)
-                alrd_vstd.append(url_ln)
-        for url in part_list:
-            full_list.append(url)
-        depth -= 1
-    return full_list
-
-
-def get_ful_image_url_list(full_list):
-    part_list = []
-    for url_ln in full_list:
-        urls_raw = []
-        list_url = []
-        if(url_ln.startswith("file")):
-                with open(url_ln[7:], "r") as f:
-                    page = f.read()
-                list_url = page.split("\n")
-                for url in list_url:
-                    if (url.find('src') != -1 or url.find('href') != -1):
-                            url_splt = url.split('"')
-                            for url_s in url_splt:
-                                if(url_s.find("jpg") != -1 or url_s.find("jpeg") != -1 or url_s.find("gif") != -1 or url_s.find("png") != -1):
-                                    part_list.append(url_s)
+                                if(url_s.startswith(url_base) or url_s.startswith("//") or url_s.startswith("/") or url_s.startswith("https")):
+                                    url_list_f.append(url_converter(url_ln, url_s))
+            else:
+                web_requester(url_ln)
         else:
-            r = requests.get(url_ln, verify=False)
-            soup = BeautifulSoup(r.text, 'html.parser')
-            list_url = soup.findAll('link') + soup.findAll('img')
-            for url in list_url:
-                if (url.has_key('href')):
-                    urls_raw.append(url['href'])
-                elif (url.has_key('src')):
-                    urls_raw.append(url['src'])
-            for url in urls_raw:
-                if(url.find("jpg") != -1 or url.find("jpeg") != -1 or url.find("gif") != -1 or url.find("png") != -1):
-                    if(url not in part_list):
-                        part_list.append(url)
-    return part_list
+            web_requester(url_ln)
+
+def web_requester(url_ln):
+    urls_raw = []
+    list_url = []
+    r = requests.get(url_ln, verify=False)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    list_url = soup.findAll('link') + soup.findAll('a')#
+    for url in list_url:
+        if url.has_key('href'):
+            urls_raw.append(url['href'])
+    urls = []
+    for url in urls_raw:
+        if(url.startswith(url_base) or url.startswith("//") or url.startswith("/")): #
+            urls.append(url_converter(url_base, url))
+    for url in urls:
+        if(url not in url_list_f):
+            url_list_f.append(url)
 
 
-def folder_create(urls, arg):
+def test_img_url(url_ln):
+    urls_raw = []
+    list_url = []
+    part_list = []
+    if(url_ln.startswith("file")):
+        with open(url_ln[7:], "r") as f:
+            page = f.read()
+        list_url = page.split("\n")
+        for url in list_url:
+            if (url.find('src') != -1 or url.find('href') != -1):
+                    url_splt = url.split('"')
+                    for url_s in url_splt:
+                        if(url_s.find("jpg") != -1 or url_s.find("jpeg") != -1 or url_s.find("gif") != -1 or url_s.find("png") != -1):
+                            part_list.append(url_s)
+    else:
+        r = requests.get(url_ln, verify=False)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        list_url = soup.findAll('link') + soup.findAll('img')
+        for url in list_url:
+            if (url.has_key('href')):
+                urls_raw.append(url['href'])
+            elif (url.has_key('src')):
+                urls_raw.append(url['src'])
+        for url in urls_raw:
+            if(url.find("jpg") != -1 or url.find("jpeg") != -1 or url.find("gif") != -1 or url.find("png") != -1):
+                if(url not in part_list):
+                    part_list.append(url)
+    download_images(part_list, arg.get("p"))
+
+def folder_create(arg):
     folder_name = arg.get("p")
     os.mkdir(folder_name)
-    download_images(urls, folder_name)
 
 
 def download_images(urls, folder_name):
-    count = 0
     for url in urls:
         filename = re.search(r'/([\w_-]+[.](jpg|jpeg|gif|png))', url)
         if not filename:
-            print("Broken link.")
+            print("Broken link. ")
             continue
         with open(folder_name + "/" + filename.group(1), 'wb') as f:
             response = requests.get(url)
             f.write(response.content)
-            count += 1
-    print("Download finish. \n" + str(count) + " images has been downloaded.")
 
 
 def url_converter(base_url, url):
@@ -133,16 +132,18 @@ def url_converter(base_url, url):
 
 if __name__ == "__main__":
     arg = parse()
-    url = arg.get("URL")
-    if(url.startswith("http")):
+    url_base = arg.get("URL")
+    url_list_f = []
+    if(url_base.startswith("http")):
         try:
-            requests.get(url)
+            requests.get(url_base)
             main(arg)
+            print("Download finish. \n" + str(len(os.listdir(arg.get("p")))) + " images has been downloaded.")
         except ConnectionError:
             print ('Failed to open url.')
-    elif(url.startswith("file")):
+    elif(url_base.startswith("file")):
         try:
-            open(url[7:], "r")
+            open(url_base[7:], "r")
             main(arg)
         except:
             print("Failed to open file url.")
@@ -154,3 +155,4 @@ if __name__ == "__main__":
 #https://www.codespeedy.com
 #https://elpais.com
 #file:///System/Volumes/Data/sgoinfre/goinfre/Perso/ytoro-mo/arachnida/ejemplo.html
+#https://www.billerickson.net/how-long-does-it-take-to-build-a-website/
