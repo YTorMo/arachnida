@@ -112,13 +112,33 @@ def folder_create(arg):
 
 def download_images(urls, folder_name):
     for url in urls:
-        filename = re.search(r'/([\w_-]+[.](jpg|jpeg|gif|png))', url)
+        url_spl = url_spliter(url)
+        filename = url_spl.split("/")[-1]
         if not filename:
-            print("Invalid image url. ")
+            print("Invalid image url.N " + url_spl)
             continue
-        with open(folder_name + "/" + filename.group(1), 'wb') as f:
-            response = requests.get(url)
-            f.write(response.content)
+        with open(folder_name + "/" + filename, 'wb') as f:
+            try:
+                response = requests.get(url_spl)
+                f.write(response.content)
+            except ConnectionError:
+                print ("Invalid image url.E " + url_spl)
+
+
+def url_spliter(url):
+    if(url.find(".jpg") != -1):
+        url_spl = url.split(".jpg")[0]
+        url_spl += ".jpg"
+    elif(url.find(".jpeg") != -1):
+        url_spl = url.split(".jpeg")[0]
+        url_spl += ".jpeg"
+    elif(url.find(".gif") != -1):
+        url_spl = url.split(".gif")[0]
+        url_spl += ".gif"
+    elif(url.find(".png") != -1):
+        url_spl = url.split(".png")[0]
+        url_spl += ".png"
+    return url_spl
 
 
 def url_converter(base_url, url):
